@@ -128,6 +128,10 @@ class PgWAStore {
 let waStatus = 'disconnected', currentQR = null, waClient = null;
 
 function initWhatsApp() {
+  // Sur Railway, on utilise le Chromium installé via Nix (PUPPETEER_EXECUTABLE_PATH)
+  // En local, Puppeteer utilise son propre Chrome téléchargé
+  const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || undefined;
+
   waClient = new Client({
     authStrategy: new RemoteAuth({
       store: new PgWAStore(),
@@ -135,11 +139,28 @@ function initWhatsApp() {
     }),
     puppeteer: {
       headless: true,
-      args: ['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage',
-             '--disable-accelerated-2d-canvas','--no-first-run','--no-zygote',
-             '--single-process','--disable-gpu']
+      executablePath,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process',
+        '--disable-gpu',
+        '--disable-extensions',
+        '--disable-background-networking',
+        '--disable-default-apps',
+        '--disable-sync',
+        '--metrics-recording-only',
+        '--mute-audio',
+        '--no-default-browser-check',
+        '--safebrowsing-disable-auto-update'
+      ]
     }
   });
+
   waClient.on('qr', async qr => { waStatus = 'qr'; currentQR = await qrcode.toDataURL(qr); });
   waClient.on('ready', () => { waStatus = 'ready'; currentQR = null; console.log('✅ WhatsApp connecté'); });
   waClient.on('remote_session_saved', () => console.log('💾 Session sauvegardée en base'));
