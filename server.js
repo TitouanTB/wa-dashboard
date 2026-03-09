@@ -426,4 +426,96 @@ app.patch('/api/campaigns/:id', requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
-app.post('/api/campaigns/:id/s
+app.post('/api/campaigns/:id/send-now', requireAuth, async (req, res) => {
+  const camp = await db.one('SELECT * FROM campaigns WHERE id=$1',[req.params.id]);
+  if (!camp) return res.status(404).json({ error: 'Introuvable' });
+  const contacts = await db.all(`SELECT ct.* FROM contacts ct JOIN campaign_contacts cc ON cc.contact_id=ct.id WHERE cc.campaign_id=$1 AND cc.status='pending' LIMIT $2`,[camp.id,camp.daily_limit]);
+  if (!contacts.length) return res.status(400).json({ error: 'Aucun contact en attente' });
+  await db.run("UPDATE campaigns SET status='running' WHERE id=$1",[camp.id]);
+
+  let times;
+  const slots = camp.time_slots || [];
+  if (slots.length > 0 && camp.schedule_type === 'spread') {
+    times = distributeAcrossSlots(slots, contacts.length, new Date());
+  } else {
+    const now = new Date();
+    times = contacts.map((_,i) => new Date(now.getTime() + i*60000));
+  }
+
+  for (let i=0; i<contacts.length; i++)
+    await db.run('INSERT INTO send_queue(campaign_id,contact_id,scheduled_for) VALUES($1,$2,$3)',[camp.id,contacts[i].id,times[i].toISOString()]);
+  res.json({ ok:true, queued:contacts.length });
+});
+
+app.post('/api/campaigns/:id/activate', requireAuth, async (req, res) => {
+  await db.run("UPDATE campaigns SET status='active' WHERE id=$1",[req.params.id]);
+  scheduleAllCampaigns();
+  res.json({ ok:true });
+});
+
+app.delete('/api/campaigns/:id', requireAuth, async (req, res) => {
+  await db.run('DELETE FROM campaigns WHERE id=$1',[req.params.id]); res.json({ ok:true });
+});
+
+// Conversations
+app.get('/api/conversations', requireAuth, async (req, res) => {
+  const convs = await db.all(`
+    SELECT DISTINCT ON (contact_number) contact_number, contact_name, direction, message, received_at
+    FROM conversations ORDER BY contact_number, received_at DESC
+  `);
+  const withMeta = await Promise.all(convs.map(async c => {
+    const unread = await db.one("SELECT COUNT(*) n FROM conversations WHERE contact_number=$1 AND direction='in'", [c.contact_number]);
+    return { ...c, unread: +unread.n };
+  }));
+  res.json(withMeta.sort((a,b) => new Date(b.received_at) - new Date(a.received_at)));
+});
+
+app.get('/api/conversations/:number', requireAuth, async (req, res) => {
+  res.json(await db.all('SELECT * FROM conversations WHERE contact_number=$1 ORDER BY received_at ASC', [req.params.number]));
+});
+
+app.post('/api/conversations/:number/send', requireAuth, async (req, res) => {
+  const { message } = req.body;
+  const number = req.params.number;
+  if (!message?.trim()) return res.status(400).json({ error: 'Message vide' });
+  if (waStatus !== 'ready') return res.status(400).json({ error: 'WhatsApp non connecté' });
+  try {
+    await waClient.sendMessage(`${number}@c.us`, message);
+    const contact = await db.one('SELECT name FROM contacts WHERE number=$1', [number]);
+    await db.run('INSERT INTO conversations(contact_number,contact_name,direction,message) VALUES($1,$2,$3,$4)', [number, contact?.name || number, 'out', message]);
+    res.json({ ok: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// Queue & Logs
+app.get('/api/queue', requireAuth, async (req, res) => res.json(await db.all(`
+  SELECT q.*,c.name campaign_name,ct.name contact_name,ct.number FROM send_queue q
+  JOIN campaigns c ON c.id=q.campaign_id JOIN contacts ct ON ct.id=q.contact_id
+  WHERE q.status='pending' ORDER BY q.scheduled_for ASC LIMIT 100
+`)));
+
+app.get('/api/logs', requireAuth, async (req, res) => res.json(await db.all(`
+  SELECT q.*,c.name campaign_name,ct.name contact_name,ct.number FROM send_queue q
+  JOIN campaigns c ON c.id=q.campaign_id JOIN contacts ct ON ct.id=q.contact_id
+  WHERE q.status IN ('sent','error') ORDER BY q.sent_at DESC LIMIT 200
+`)));
+
+app.get('/api/analytics', requireAuth, async (req, res) => {
+  const [total,errors,pending,today,byDay,byCampaign,replies] = await Promise.all([
+    db.one("SELECT COUNT(*) n FROM send_queue WHERE status='sent'"),
+    db.one("SELECT COUNT(*) n FROM send_queue WHERE status='error'"),
+    db.one("SELECT COUNT(*) n FROM send_queue WHERE status='pending'"),
+    db.one("SELECT COUNT(*) n FROM send_queue WHERE status='sent' AND sent_at::date=CURRENT_DATE"),
+    db.all("SELECT sent_at::date day,COUNT(*) count FROM send_queue WHERE status='sent' GROUP BY sent_at::date ORDER BY day DESC LIMIT 14"),
+    db.all("SELECT c.name,COUNT(*) sent FROM send_queue q JOIN campaigns c ON c.id=q.campaign_id WHERE q.status='sent' GROUP BY q.campaign_id,c.name ORDER BY sent DESC LIMIT 5"),
+    db.one("SELECT COUNT(*) n FROM conversations WHERE direction='in'")
+  ]);
+  res.json({ total:+total.n, errors:+errors.n, pending:+pending.n, today:+today.n, byDay, byCampaign, replies:+replies.n });
+});
+
+async function start() {
+  await initDB();
+  initWhatsApp();
+  app.listen(PORT, () => console.log(`🚀 http://localhost:${PORT} — pwd: ${PASSWORD}`));
+}
+start().catch(err => { console.error(err); process.exit(1); });
