@@ -283,4 +283,746 @@
         <div class="toolbar-left">
           <input type="text" id="contact-search" placeholder="Rechercher..." style="width:200px;padding:7px 10px;font-size:12px" oninput="filterContacts(this.value)" />
           <button class="btn btn-blue btn-sm" onclick="exportContacts()">⬇ Exporter CSV</button>
-          <button clas
+          <button class="btn btn-primary btn-sm" onclick="openModal('modal-contact')">+ Ajouter</button>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Nom</th><th>Numéro</th><th>WhatsApp</th><th>Envoi</th><th>Champs custom</th><th>Ajouté le</th><th></th></tr></thead>
+          <tbody id="contacts-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Campaigns -->
+  <div class="page" id="page-campaigns">
+    <div class="page-title">Campagnes</div>
+    <div class="page-sub">Crée tes messages et configure la fréquence d'envoi</div>
+    <div class="toolbar">
+      <div style="font-size:13px;font-weight:700;color:var(--muted)" id="campaigns-count">— campagnes</div>
+      <button class="btn btn-primary" onclick="openCampaignModal()">+ Nouvelle campagne</button>
+    </div>
+    <div id="campaigns-list"></div>
+  </div>
+
+  <!-- Queue -->
+  <div class="page" id="page-queue">
+    <div class="page-title">File d'attente</div>
+    <div class="page-sub">Messages planifiés</div>
+    <div class="card">
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Planifié pour</th><th>Contact</th><th>Numéro</th><th>Campagne</th><th>Statut</th></tr></thead>
+          <tbody id="queue-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Logs -->
+  <div class="page" id="page-logs">
+    <div class="page-title">Historique</div>
+    <div class="page-sub">Tous les envois récents</div>
+    <div class="card">
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Date</th><th>Contact</th><th>Numéro</th><th>Campagne</th><th>Statut</th><th>Erreur</th></tr></thead>
+          <tbody id="logs-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Conversations -->
+  <div class="page" id="page-conversations">
+    <div class="page-title">Conversations</div>
+    <div class="page-sub">Messages reçus et envoyés</div>
+    <div class="conv-layout">
+      <div class="conv-list" id="conv-list">
+        <div class="conv-no-conv"><span style="font-size:32px">💬</span><span>Aucune conversation</span></div>
+      </div>
+      <div class="conv-thread" id="conv-thread">
+        <div class="conv-empty">Sélectionne une conversation</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Connection -->
+  <div class="page" id="page-connection">
+    <div class="page-title">Connexion WhatsApp</div>
+    <div class="page-sub">Lie ton numéro au dashboard</div>
+    <div id="connection-content"></div>
+  </div>
+
+</main>
+
+<!-- Modal: Contact -->
+<div class="modal-overlay" id="modal-contact">
+  <div class="modal">
+    <div class="modal-title">Nouveau contact <button class="modal-close" onclick="closeModal('modal-contact')">×</button></div>
+    <div class="form-row">
+      <div class="form-group"><label class="field-label">Prénom / Nom</label><input type="text" id="c-name" placeholder="Alice" /></div>
+      <div class="form-group"><label class="field-label">Numéro</label><input type="text" id="c-number" placeholder="0612345678" /></div>
+    </div>
+    <div class="hint" style="margin-bottom:16px">Format : 0612345678 ou 33612345678 (sans +)</div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-contact')">Annuler</button>
+      <button class="btn btn-primary" onclick="addContact()">Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Campaign -->
+<div class="modal-overlay" id="modal-campaign">
+  <div class="modal">
+    <div class="modal-title" id="modal-camp-title">Nouvelle campagne <button class="modal-close" onclick="closeModal('modal-campaign')">×</button></div>
+
+    <div class="form-group">
+      <label class="field-label">Nom de la campagne</label>
+      <input type="text" id="camp-name" placeholder="Relance restaurants mars" />
+    </div>
+
+    <div class="form-group">
+      <label class="field-label">Message</label>
+      <textarea id="camp-message" placeholder="Bonjour {{name}}, ..."></textarea>
+      <div class="hint">Variables disponibles :</div>
+      <div class="var-chips" id="var-chips">
+        <div class="var-chip" onclick="insertVar('name')">{{name}}</div>
+        <div class="var-chip" onclick="insertVar('number')">{{number}}</div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="field-label">Contacts</label>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <input type="text" id="camp-contact-search" placeholder="Filtrer..." style="font-size:12px;padding:7px 10px" oninput="filterCampContacts(this.value)" />
+        <button class="btn btn-ghost btn-sm" onclick="toggleAllContacts(true)">Tous</button>
+        <button class="btn btn-ghost btn-sm" onclick="toggleAllContacts(false)">Aucun</button>
+      </div>
+      <div class="contacts-select" id="camp-contact-list"></div>
+      <div class="hint" id="selected-count">0 contact sélectionné</div>
+    </div>
+
+    <hr style="border:none;border-top:1px solid var(--border);margin:20px 0" />
+
+    <div class="form-group">
+      <label class="field-label">Mode d'envoi</label>
+      <select id="camp-schedule-type" onchange="updateScheduleUI()">
+        <option value="manual">Manuel</option>
+        <option value="daily">Quotidien à heure fixe</option>
+        <option value="spread">Étalé sur des plages horaires</option>
+      </select>
+    </div>
+
+    <div id="schedule-options" style="display:none">
+      <div class="form-group">
+        <label class="field-label">Limite quotidienne (max messages/jour)</label>
+        <input type="number" id="camp-limit" value="10" min="1" max="50" />
+      </div>
+
+      <div class="form-group">
+        <label class="field-label">Jours d'envoi</label>
+        <div class="day-picker" id="day-picker">
+          <button class="day-btn on" data-i="1">Lun</button>
+          <button class="day-btn on" data-i="2">Mar</button>
+          <button class="day-btn on" data-i="3">Mer</button>
+          <button class="day-btn on" data-i="4">Jeu</button>
+          <button class="day-btn on" data-i="5">Ven</button>
+          <button class="day-btn" data-i="6">Sam</button>
+          <button class="day-btn" data-i="0">Dim</button>
+        </div>
+      </div>
+
+      <!-- Heure fixe -->
+      <div id="fixed-time-opts">
+        <div class="form-group">
+          <label class="field-label">Heure d'envoi</label>
+          <input type="time" id="camp-time" value="09:00" />
+        </div>
+      </div>
+
+      <!-- Plages horaires multiples -->
+      <div id="spread-opts" style="display:none">
+        <div class="form-group">
+          <label class="field-label">Plages horaires (max 3)</label>
+          <div class="hint" style="margin-bottom:10px">Les messages sont répartis proportionnellement sur chaque plage</div>
+          <div class="slots-list" id="slots-list"></div>
+          <button class="add-slot-btn mt" id="add-slot-btn" onclick="addSlot()">+ Ajouter une plage</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-campaign')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveCampaign()" id="save-camp-btn">Créer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let allContacts = [], allCampaigns = [], editingCampId = null, activeConvNumber = null;
+const $ = id => document.getElementById(id);
+const fmt = d => d ? new Date(d).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+const fmtDate = d => d ? d.slice(0,10).split('-').reverse().join('/') : '—';
+
+async function api(method, url, body) {
+  const res = await fetch(url, { method, headers:{'Content-Type':'application/json'}, body: body ? JSON.stringify(body) : undefined });
+  if (res.status === 401) { window.location.href = '/login'; throw new Error('auth'); }
+  return res.json();
+}
+async function apiForm(url, fd) {
+  const res = await fetch(url, { method:'POST', body:fd });
+  if (res.status === 401) { window.location.href = '/login'; throw new Error('auth'); }
+  return res.json();
+}
+
+// ─── Nav ──────────────────────────────────────────────────────────────────────
+const pageLoaders = { analytics:loadAnalytics, contacts:loadContacts, campaigns:loadCampaigns, queue:loadQueue, logs:loadLogs, conversations:loadConversations, connection:loadConnection };
+document.querySelectorAll('.nav-item').forEach(el => {
+  el.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    el.classList.add('active');
+    $('page-' + el.dataset.page).classList.add('active');
+    pageLoaders[el.dataset.page]?.();
+  });
+});
+
+// ─── WA Status ────────────────────────────────────────────────────────────────
+const statusText = { disconnected:'Déconnecté', qr:'QR en attente', connecting:'Connexion...', ready:'Connecté ✓' };
+async function pollWA() {
+  try {
+    const d = await api('GET', '/api/wa/status');
+    $('wa-dot').className = 'wa-dot ' + d.status;
+    $('wa-val').textContent = statusText[d.status] || d.status;
+  } catch {}
+}
+setInterval(pollWA, 4000); pollWA();
+
+async function logout() { await api('POST', '/api/logout'); window.location.href = '/login'; }
+
+// ─── Analytics ────────────────────────────────────────────────────────────────
+async function loadAnalytics() {
+  const d = await api('GET', '/api/analytics');
+  $('s-today').textContent = d.today;
+  $('s-total').textContent = d.total;
+  $('s-pending').textContent = d.pending;
+  $('s-replies').textContent = d.replies || 0;
+  const rate = (d.total + d.errors) > 0 ? Math.round((d.total/(d.total+d.errors))*100) : 0;
+  $('s-rate').textContent = rate + '%';
+  $('s-rate').style.color = rate >= 90 ? 'var(--accent)' : rate >= 70 ? 'var(--yellow)' : 'var(--red)';
+
+  const chart = $('chart'); chart.innerHTML = '';
+  const days = [];
+  for (let i=13; i>=0; i--) {
+    const dt = new Date(); dt.setDate(dt.getDate()-i);
+    const key = dt.toISOString().slice(0,10);
+    days.push({ day:key, count: d.byDay.find(b => b.day?.slice?.(0,10) === key)?.count || 0 });
+  }
+  const max = Math.max(...days.map(x=>+x.count), 1);
+  days.forEach(({day, count}) => {
+    chart.innerHTML += `<div class="bar-col"><div class="bar" style="height:${Math.round((+count/max)*100)}%" title="${count}"></div><div class="bar-lbl">${day.slice(8)}</div></div>`;
+  });
+
+  const cs = $('camp-stats');
+  if (!d.byCampaign?.length) { cs.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">Aucune donnée</div>'; return; }
+  cs.innerHTML = d.byCampaign.map(c => `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+      <div style="flex:1;font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name}</div>
+      <div style="width:100px"><div class="progress-wrap"><div class="progress-bar" style="width:${Math.round(+c.sent/+d.byCampaign[0].sent*100)}%"></div></div></div>
+      <div style="font-size:12px;font-family:'DM Mono',monospace;color:var(--accent);width:28px;text-align:right">${c.sent}</div>
+    </div>`).join('');
+}
+
+// ─── Contacts ─────────────────────────────────────────────────────────────────
+let contactsFiltered = [];
+async function loadContacts() {
+  allContacts = await api('GET', '/api/contacts');
+  contactsFiltered = [...allContacts];
+  $('contacts-count').textContent = allContacts.length + ' contact' + (allContacts.length > 1 ? 's' : '');
+  renderContacts();
+}
+function renderContacts() {
+  const tbody = $('contacts-tbody');
+  if (!contactsFiltered.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty-row">Aucun contact</td></tr>'; return; }
+  tbody.innerHTML = contactsFiltered.map(c => {
+    const extra = c.extra_fields || {};
+    const extraStr = Object.entries(extra).slice(0,2).map(([k,v])=>`<span style="color:var(--muted)">${k}:</span> ${v}`).join(' · ');
+    const waBadge = c.wa_status === 'on_whatsapp' ? '<span class="badge sent">✓ WA</span>' : c.wa_status === 'not_on_whatsapp' ? '<span class="badge error">✗ non-WA</span>' : '<span class="badge draft">?</span>';
+    const sentBadge = c.message_sent ? '<span class="badge sent">envoyé</span>' : '<span class="badge draft">—</span>';
+    return `<tr>
+      <td><strong>${c.name}</strong></td>
+      <td>+${c.number}</td>
+      <td>${waBadge}</td>
+      <td>${sentBadge}</td>
+      <td style="color:var(--muted);font-size:11px">${extraStr||'—'}</td>
+      <td>${fmtDate(c.created_at)}</td>
+      <td><button class="btn btn-danger btn-xs" onclick="deleteContact(${c.id})">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+function filterContacts(q) {
+  const lq = q.toLowerCase();
+  contactsFiltered = allContacts.filter(c => c.name.toLowerCase().includes(lq) || c.number.includes(lq));
+  renderContacts();
+}
+async function addContact() {
+  const name = $('c-name').value.trim(), number = $('c-number').value.trim();
+  if (!name||!number) return alert('Remplis tous les champs');
+  const res = await api('POST','/api/contacts',{name,number});
+  if (res.error) return alert(res.error);
+  $('c-name').value=''; $('c-number').value='';
+  closeModal('modal-contact'); loadContacts();
+}
+async function deleteContact(id) {
+  if (!confirm('Supprimer ce contact ?')) return;
+  await api('DELETE',`/api/contacts/${id}`); loadContacts();
+}
+function exportContacts() { window.location.href = '/api/contacts/export'; }
+
+// ─── CSV Import ───────────────────────────────────────────────────────────────
+async function handleCSV(input) {
+  const file = input.files[0]; if (!file) return;
+  const fd = new FormData(); fd.append('csv', file);
+  const res = await apiForm('/api/contacts/import', fd);
+  const el = $('import-result'); el.style.display = 'block';
+  if (res.error) {
+    el.className = 'import-result err';
+    el.innerHTML = `❌ ${res.error}`;
+  } else {
+    el.className = 'import-result ok';
+    el.innerHTML = `✅ ${res.imported} importé(s), ${res.skipped} ignoré(s) (doublons)<br><span style="color:var(--muted);font-size:11px">Variables détectées : ${res.headers?.length ? res.headers.map(h=>`<code>{{${h}}}</code>`).join(' ') : 'aucune'}</span>`;
+    if (res.headers?.length) {
+      const chips = $('var-chips');
+      chips.innerHTML = `<div class="var-chip" onclick="insertVar('name')">{{name}}</div><div class="var-chip" onclick="insertVar('number')">{{number}}</div>${res.headers.map(h=>`<div class="var-chip" onclick="insertVar('${h}')">{{${h}}}</div>`).join('')}`;
+    }
+    loadContacts();
+  }
+  input.value = '';
+}
+const zone = $('upload-zone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
+zone.addEventListener('drop', e => {
+  e.preventDefault(); zone.classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (file?.name.endsWith('.csv')) {
+    const dt = new DataTransfer(); dt.items.add(file);
+    $('csv-input').files = dt.files; handleCSV($('csv-input'));
+  }
+});
+
+// ─── Campaigns ────────────────────────────────────────────────────────────────
+async function loadCampaigns() {
+  allCampaigns = await api('GET','/api/campaigns');
+  $('campaigns-count').textContent = allCampaigns.length + ' campagne' + (allCampaigns.length>1?'s':'');
+  renderCampaigns();
+}
+function renderCampaigns() {
+  const el = $('campaigns-list');
+  if (!allCampaigns.length) { el.innerHTML = '<div class="card" style="text-align:center;color:var(--muted);padding:48px">Aucune campagne</div>'; return; }
+  el.innerHTML = allCampaigns.map(c => {
+    const pct = c.total > 0 ? Math.round((c.sent/c.total)*100) : 0;
+    const slots = c.time_slots || [];
+    let scheduleStr = 'Manuel';
+    if (c.schedule_type === 'daily') scheduleStr = `Quotidien à ${c.schedule_time}`;
+    else if (c.schedule_type === 'spread') scheduleStr = slots.length ? slots.map(s=>`${s.start}→${s.end}`).join(', ') : 'Étalé';
+
+    return `<div class="card" style="margin-bottom:14px">
+      <div style="display:flex;align-items:flex-start;gap:16px">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+            <div style="font-size:15px;font-weight:800">${c.name}</div>
+            <span class="badge ${c.status}">${c.status}</span>
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:12px;font-family:'DM Mono',monospace" class="truncate">${c.message}</div>
+          <div style="display:flex;align-items:center;gap:16px;font-size:11px;color:var(--muted);flex-wrap:wrap">
+            <span>👥 ${c.total}</span>
+            <span style="color:var(--accent)">✅ ${c.sent}</span>
+            <span style="color:var(--red)">❌ ${c.errors}</span>
+            <span style="color:var(--yellow)">⏳ ${c.pending}</span>
+            <span>🕐 ${scheduleStr}</span>
+            <span>📊 ${c.daily_limit}/jour</span>
+          </div>
+          ${c.total>0?`<div class="progress-wrap mt" style="max-width:300px"><div class="progress-bar" style="width:${pct}%"></div></div>`:''}
+        </div>
+        <div class="actions" style="flex-shrink:0">
+          ${c.status!=='running'?`<button class="btn btn-primary btn-sm" onclick="sendNow(${c.id})">▶ Envoyer</button>`:'<span class="badge running">En cours…</span>'}
+          ${c.schedule_type!=='manual'&&c.status!=='active'?`<button class="btn btn-yellow btn-sm" onclick="activateCampaign(${c.id})">⚡ Activer</button>`:''}
+          <button class="btn btn-ghost btn-sm" onclick="editCampaign(${c.id})">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteCampaign(${c.id})">✕</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─── Time Slots ───────────────────────────────────────────────────────────────
+let slots = []; // [{ start, end }]
+
+function renderSlots() {
+  const list = $('slots-list'); list.innerHTML = '';
+  slots.forEach((s, i) => {
+    const row = document.createElement('div');
+    row.className = 'slot-row';
+    row.innerHTML = `
+      <input type="time" value="${s.start}" onchange="slots[${i}].start=this.value" />
+      <span class="slot-sep">→</span>
+      <input type="time" value="${s.end}" onchange="slots[${i}].end=this.value" />
+      <button class="slot-del" onclick="removeSlot(${i})">×</button>
+    `;
+    list.appendChild(row);
+  });
+  const addBtn = $('add-slot-btn');
+  addBtn.classList.toggle('disabled', slots.length >= 3);
+  addBtn.textContent = slots.length >= 3 ? '✓ Maximum 3 plages atteint' : '+ Ajouter une plage';
+}
+
+function addSlot() {
+  if (slots.length >= 3) return;
+  const defaults = [['09:00','12:00'],['14:00','17:00'],['18:00','20:00']];
+  slots.push({ start: defaults[slots.length][0], end: defaults[slots.length][1] });
+  renderSlots();
+}
+
+function removeSlot(i) {
+  slots.splice(i, 1); renderSlots();
+}
+
+function updateScheduleUI() {
+  const type = $('camp-schedule-type').value;
+  $('schedule-options').style.display = type === 'manual' ? 'none' : 'block';
+  $('fixed-time-opts').style.display = type === 'daily' ? 'block' : 'none';
+  $('spread-opts').style.display = type === 'spread' ? 'block' : 'none';
+}
+
+function getDays() {
+  const arr = ['0','0','0','0','0','0','0'];
+  document.querySelectorAll('.day-btn.on').forEach(btn => arr[btn.dataset.i]='1');
+  return arr.join('');
+}
+document.querySelectorAll('.day-btn').forEach(btn => btn.addEventListener('click', () => btn.classList.toggle('on')));
+
+function openCampaignModal(campId = null) {
+  editingCampId = campId;
+  $('modal-camp-title').innerHTML = (campId?'Modifier':'Nouvelle') + ' campagne <button class="modal-close" onclick="closeModal(\'modal-campaign\')">×</button>';
+  $('save-camp-btn').textContent = campId ? 'Sauvegarder' : 'Créer';
+
+  if (campId) {
+    const c = allCampaigns.find(x => x.id === campId);
+    $('camp-name').value = c.name;
+    $('camp-message').value = c.message;
+    $('camp-schedule-type').value = c.schedule_type;
+    $('camp-limit').value = c.daily_limit;
+    $('camp-time').value = c.schedule_time || '09:00';
+    slots = c.time_slots?.length ? [...c.time_slots] : [];
+    const days = c.schedule_days || '1111111';
+    document.querySelectorAll('.day-btn').forEach(btn => btn.classList.toggle('on', days[btn.dataset.i]==='1'));
+  } else {
+    $('camp-name').value=''; $('camp-message').value='';
+    $('camp-schedule-type').value='manual'; $('camp-limit').value=10; $('camp-time').value='09:00';
+    slots = [];
+    document.querySelectorAll('.day-btn').forEach((btn,i) => btn.classList.toggle('on', i<5));
+  }
+
+  renderSlots();
+  renderCampContacts('');
+  updateVarChips();
+  updateScheduleUI();
+  openModal('modal-campaign');
+}
+
+function editCampaign(id) { openCampaignModal(id); }
+
+function updateVarChips() {
+  const keys = new Set();
+  allContacts.forEach(c => { try { Object.keys(c.extra_fields||{}).forEach(k=>keys.add(k)); } catch{} });
+  $('var-chips').innerHTML = `<div class="var-chip" onclick="insertVar('name')">{{name}}</div><div class="var-chip" onclick="insertVar('number')">{{number}}</div>${[...keys].map(k=>`<div class="var-chip" onclick="insertVar('${k}')">{{${k}}}</div>`).join('')}`;
+}
+
+function insertVar(key) {
+  const ta = $('camp-message');
+  const s = ta.selectionStart, e = ta.selectionEnd;
+  ta.value = ta.value.slice(0,s) + `{{${key}}}` + ta.value.slice(e);
+  ta.focus(); ta.selectionStart = ta.selectionEnd = s + key.length + 4;
+}
+
+function renderCampContacts(filter) {
+  const list = $('camp-contact-list');
+  const filtered = allContacts.filter(c => !filter || c.name.toLowerCase().includes(filter.toLowerCase()) || c.number.includes(filter));
+  if (!filtered.length) { list.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:12px">Aucun contact</div>'; return; }
+  const selected = new Set([...document.querySelectorAll('#camp-contact-list input:checked')].map(el=>+el.value));
+  list.innerHTML = filtered.map(c => `
+    <label class="contact-item">
+      <input type="checkbox" value="${c.id}" ${selected.has(c.id)?'checked':''} onchange="updateSelectedCount()" />
+      <span style="font-weight:600;font-size:12px">${c.name}</span>
+      <span class="contact-num">+${c.number}</span>
+    </label>`).join('');
+  updateSelectedCount();
+}
+function filterCampContacts(q) { renderCampContacts(q); }
+function toggleAllContacts(checked) {
+  document.querySelectorAll('#camp-contact-list input[type=checkbox]').forEach(el=>el.checked=checked);
+  updateSelectedCount();
+}
+function updateSelectedCount() {
+  const n = document.querySelectorAll('#camp-contact-list input:checked').length;
+  $('selected-count').textContent = n + ' contact' + (n>1?'s':'') + ' sélectionné' + (n>1?'s':'');
+}
+
+async function saveCampaign() {
+  const name = $('camp-name').value.trim(), message = $('camp-message').value.trim();
+  if (!name||!message) return alert('Nom et message requis');
+  const contact_ids = [...document.querySelectorAll('#camp-contact-list input:checked')].map(el=>+el.value);
+  if (!contact_ids.length) return alert('Sélectionne au moins un contact');
+
+  const type = $('camp-schedule-type').value;
+  if (type === 'spread' && slots.length === 0) return alert('Ajoute au moins une plage horaire');
+
+  const payload = {
+    name, message, contact_ids,
+    schedule_type: type,
+    schedule_time: $('camp-time').value,
+    daily_limit: +$('camp-limit').value,
+    schedule_days: getDays(),
+    time_slots: slots
+  };
+
+  if (editingCampId) await api('PATCH',`/api/campaigns/${editingCampId}`,payload);
+  else await api('POST','/api/campaigns',payload);
+  closeModal('modal-campaign'); loadCampaigns();
+}
+
+async function sendNow(id) {
+  if (!confirm('Envoyer maintenant les messages en attente ?')) return;
+  const res = await api('POST',`/api/campaigns/${id}/send-now`);
+  if (res.error) return alert(res.error);
+  alert(`✅ ${res.queued} message(s) mis en file d'attente`);
+  loadCampaigns();
+}
+
+async function activateCampaign(id) {
+  await api('POST',`/api/campaigns/${id}/activate`); loadCampaigns();
+}
+
+async function deleteCampaign(id) {
+  if (!confirm('Supprimer cette campagne ?')) return;
+  await api('DELETE',`/api/campaigns/${id}`); loadCampaigns();
+}
+
+// ─── Queue & Logs ─────────────────────────────────────────────────────────────
+async function loadQueue() {
+  const queue = await api('GET','/api/queue');
+  const tbody = $('queue-tbody');
+  if (!queue.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty-row">File vide</td></tr>'; return; }
+  tbody.innerHTML = queue.map(q=>`<tr>
+    <td>${fmt(q.scheduled_for)}</td><td>${q.contact_name}</td><td>+${q.number}</td>
+    <td>${q.campaign_name}</td><td><span class="badge ${q.status}">${q.status}</span></td>
+  </tr>`).join('');
+}
+
+async function loadLogs() {
+  const logs = await api('GET','/api/logs');
+  const tbody = $('logs-tbody');
+  if (!logs.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty-row">Aucun log</td></tr>'; return; }
+  tbody.innerHTML = logs.map(l=>`<tr>
+    <td>${fmt(l.sent_at)}</td><td>${l.contact_name}</td><td>+${l.number}</td>
+    <td>${l.campaign_name}</td><td><span class="badge ${l.status}">${l.status}</span></td>
+    <td style="color:var(--red);font-size:11px">${l.error||''}</td>
+  </tr>`).join('');
+}
+
+// ─── Conversations ────────────────────────────────────────────────────────────
+let convPolling = null;
+
+async function loadConversations() {
+  const convs = await api('GET','/api/conversations');
+  const list = $('conv-list');
+  if (!convs.length) {
+    list.innerHTML = '<div class="conv-no-conv"><span style="font-size:32px">💬</span><span>Aucune conversation</span></div>';
+    return;
+  }
+  list.innerHTML = convs.map(c => `
+    <div class="conv-item ${activeConvNumber===c.contact_number?'active':''}" onclick="openConv('${c.contact_number}','${c.contact_name||c.contact_number}')">
+      <div class="conv-meta">
+        <div class="conv-name">${c.contact_name || c.contact_number}</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div class="conv-time">${fmt(c.received_at)}</div>
+          ${c.unread > 0 ? `<div class="conv-unread">${c.unread}</div>` : ''}
+        </div>
+      </div>
+      <div class="conv-preview">${c.direction==='in'?'📩 ':''} ${c.message}</div>
+    </div>`).join('');
+
+  // Reprend la conversation active si elle existe
+  if (activeConvNumber) {
+    const c = convs.find(x => x.contact_number === activeConvNumber);
+    if (c) openConv(c.contact_number, c.contact_name || c.contact_number);
+  }
+}
+
+async function openConv(number, name) {
+  activeConvNumber = number;
+  // Refresh liste pour marquer actif
+  document.querySelectorAll('.conv-item').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.conv-item').forEach(el => { if (el.onclick.toString().includes(number)) el.classList.add('active'); });
+
+  const msgs = await api('GET', `/api/conversations/${number}`);
+  const thread = $('conv-thread');
+  thread.innerHTML = `
+    <div class="conv-header">
+      <div>${name}</div>
+      <div style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:2px">+${number}</div>
+    </div>
+    <div class="conv-messages" id="conv-msgs">
+      ${!msgs.length ? '<div class="conv-empty">Aucun message</div>' : msgs.map(m=>`
+        <div>
+          <div class="msg-bubble msg-${m.direction}">${m.message.replace(/\n/g,'<br>')}</div>
+          <div class="msg-time" style="${m.direction==='out'?'text-align:right':''}">${fmt(m.received_at)}</div>
+        </div>`).join('')}
+    </div>
+    <div class="conv-input">
+      <textarea id="conv-reply" placeholder="Écris ton message..." onkeydown="if(event.ctrlKey&&event.key==='Enter')sendReply('${number}')"></textarea>
+      <button class="btn btn-primary" onclick="sendReply('${number}')">Envoyer</button>
+    </div>
+  `;
+
+  // Scroll en bas
+  const msgEl = $('conv-msgs');
+  if (msgEl) msgEl.scrollTop = msgEl.scrollHeight;
+
+  // Polling pour les nouveaux messages
+  if (convPolling) clearInterval(convPolling);
+  convPolling = setInterval(() => openConv(number, name), 8000);
+}
+
+async function sendReply(number) {
+  const ta = $('conv-reply');
+  const message = ta.value.trim();
+  if (!message) return;
+  ta.value = '';
+  const res = await api('POST', `/api/conversations/${number}/send`, { message });
+  if (res.error) return alert(res.error);
+  // Rafraîchit la conversation
+  const contact = allContacts.find(c => c.number === number);
+  openConv(number, contact?.name || number);
+}
+
+// ─── Connection ───────────────────────────────────────────────────────────────
+async function loadConnection() {
+  const d = await api('GET','/api/wa/status');
+  const el = $('connection-content');
+  if (d.status === 'ready') {
+    el.innerHTML = `
+      <div class="connected-box">
+        <div style="font-size:30px">✅</div>
+        <div><div style="font-size:15px;font-weight:700">WhatsApp connecté</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">Session sauvegardée en base PostgreSQL — survivra aux redémarrages</div></div>
+      </div>
+      <button class="btn btn-danger" onclick="disconnectWA()">Déconnecter</button>`;
+  } else if (d.status === 'qr' && d.qr) {
+    el.innerHTML = `
+      <div class="qr-wrap">
+        <img class="qr-img" src="${d.qr}" width="230" height="230" alt="QR" />
+        <div><div style="font-size:20px;font-weight:800;margin-bottom:8px">Scanne ce QR code</div>
+        <div style="font-size:13px;color:var(--muted)">WhatsApp → ⋮ → Appareils liés → Lier un appareil</div></div>
+      </div>`;
+    setTimeout(loadConnection, 3000);
+  } else {
+    el.innerHTML = `
+      <div class="qr-wrap">
+        <div style="font-size:52px">🔌</div>
+        <div><div style="font-size:20px;font-weight:800;margin-bottom:8px">Non connecté</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:16px">Le serveur démarre WhatsApp…</div>
+        <button class="btn btn-ghost" onclick="reconnectWA()">Forcer reconnexion</button></div>
+      </div>`;
+    setTimeout(loadConnection, 4000);
+  }
+}
+async function disconnectWA() { if (!confirm('Déconnecter ?')) return; await api('POST','/api/wa/disconnect'); loadConnection(); }
+async function reconnectWA() { await api('POST','/api/wa/reconnect'); loadConnection(); }
+
+// ─── Modals ───────────────────────────────────────────────────────────────────
+function openModal(id) { $(id).classList.add('open'); }
+function closeModal(id) { $(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => { if (e.target===m) m.classList.remove('open'); }));
+
+// Stoppe le polling conversations quand on change de page
+document.querySelectorAll('.nav-item').forEach(el => {
+  el.addEventListener('click', () => {
+    if (el.dataset.page !== 'conversations' && convPolling) { clearInterval(convPolling); convPolling = null; }
+  });
+});
+
+// ─── Vérification WhatsApp ───────────────────────────────────────────────────
+let verifyPolling = null;
+
+async function startVerify() {
+  const res = await api('POST', '/api/verify/start');
+  if (res.error) return alert(res.error);
+  $('verify-start-btn').style.display = 'none';
+  $('verify-stop-btn').style.display = 'inline-flex';
+  $('verify-progress').style.display = 'block';
+  $('verify-result').style.display = 'none';
+  verifyPolling = setInterval(pollVerify, 2000);
+}
+
+async function stopVerify() {
+  await api('POST', '/api/verify/stop');
+  if (verifyPolling) { clearInterval(verifyPolling); verifyPolling = null; }
+  $('verify-start-btn').style.display = 'inline-flex';
+  $('verify-stop-btn').style.display = 'none';
+  loadContacts();
+}
+
+async function resetVerify() {
+  if (!confirm('Réinitialiser tous les statuts WhatsApp ?')) return;
+  await api('POST', '/api/verify/reset');
+  $('verify-progress').style.display = 'none';
+  $('verify-result').style.display = 'none';
+  loadContacts();
+}
+
+async function pollVerify() {
+  try {
+    const s = await api('GET', '/api/verify/status');
+    const pct = s.total > 0 ? Math.round((s.done / s.total) * 100) : 0;
+    $('verify-bar').style.width = pct + '%';
+    $('verify-pct').textContent = pct + '%';
+    $('v-found').textContent = s.found;
+    $('v-notfound').textContent = s.notFound;
+    $('v-remaining').textContent = s.total - s.done;
+    $('verify-label').textContent = s.running ? `Vérification en cours… (${s.done}/${s.total})` : `Terminé (${s.done}/${s.total})`;
+
+    if (!s.running && s.done > 0) {
+      clearInterval(verifyPolling); verifyPolling = null;
+      $('verify-start-btn').style.display = 'inline-flex';
+      $('verify-stop-btn').style.display = 'none';
+      const el = $('verify-result');
+      el.style.display = 'block';
+      el.innerHTML = `✅ Vérification terminée — <strong style="color:var(--accent)">${s.found} sur WhatsApp</strong>, <strong style="color:var(--red)">${s.notFound} non-WA</strong>, ${s.errors} erreurs`;
+      loadContacts();
+    }
+  } catch(e) {}
+}
+
+// Reprend le polling si une vérification est en cours au chargement
+async function checkVerifyOnLoad() {
+  const s = await api('GET', '/api/verify/status');
+  if (s.running) {
+    $('verify-start-btn').style.display = 'none';
+    $('verify-stop-btn').style.display = 'inline-flex';
+    $('verify-progress').style.display = 'block';
+    verifyPolling = setInterval(pollVerify, 2000);
+  }
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+loadAnalytics();
+loadContacts();
+checkVerifyOnLoad();
+</script>
+</body>
+</html>
