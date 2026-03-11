@@ -350,6 +350,9 @@ app.post('/api/contacts', requireAuth, async (req, res) => {
     res.json({ id: r.id });
   } catch { res.status(400).json({ error: 'Numéro déjà existant' }); }
 });
+app.delete('/api/contacts/all', requireAuth, async (req, res) => {
+  await db.run('DELETE FROM contacts'); res.json({ ok: true });
+});
 app.delete('/api/contacts/:id', requireAuth, async (req, res) => {
   await db.run('DELETE FROM contacts WHERE id=$1', [req.params.id]); res.json({ ok: true });
 });
