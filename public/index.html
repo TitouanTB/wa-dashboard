@@ -283,6 +283,7 @@
         <div class="toolbar-left">
           <input type="text" id="contact-search" placeholder="Rechercher..." style="width:200px;padding:7px 10px;font-size:12px" oninput="filterContacts(this.value)" />
           <button class="btn btn-blue btn-sm" onclick="exportContacts()">⬇ Exporter CSV</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteAllContacts()">🗑 Tout supprimer</button>
           <button class="btn btn-primary btn-sm" onclick="openModal('modal-contact')">+ Ajouter</button>
         </div>
       </div>
@@ -581,6 +582,12 @@ async function deleteContact(id) {
   await api('DELETE',`/api/contacts/${id}`); loadContacts();
 }
 function exportContacts() { window.location.href = '/api/contacts/export'; }
+async function deleteAllContacts() {
+  if (!confirm('Supprimer TOUS les contacts ? Cette action est irréversible.')) return;
+  if (!confirm('Dernière confirmation — supprimer les ' + allContacts.length + ' contacts ?')) return;
+  await api('DELETE', '/api/contacts/all');
+  loadContacts();
+}
 
 // ─── CSV Import ───────────────────────────────────────────────────────────────
 async function handleCSV(input) {
